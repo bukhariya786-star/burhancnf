@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burhan Stationery Stock</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+        /* --- GLOBAL STYLES --- */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* --- HEADER --- */
+        .main-header {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border-top: 5px solid #2c3e50;
+        }
+        .main-header h1 { margin: 0; font-size: 1.4rem; color: #2c3e50; }
+        .main-header h2 { margin: 5px 0; font-size: 1.1rem; color: #2980b9; }
+        .main-header h3 { margin: 0; font-size: 0.9rem; color: #7f8c8d; font-weight: normal; }
+        
+        .date-badge {
+            margin-top: 10px;
+            background: #eee;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        /* --- SEARCH BOX --- */
+        .search-container {
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus { border-color: #2980b9; }
+        input::placeholder { color: transparent; } /* Hidden Placeholder */
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: white;
+            transition: 0.3s;
+        }
+        .btn-search { background-color: #2980b9; }
+        .btn-search:hover { background-color: #1a5f8a; }
+
+        /* --- RESULT CARD (SCREEN) --- */
+        #resultContainer { display: none; }
+
+        .data-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 10px 0;
+        }
+        .label { color: #666; font-size: 0.9rem; }
+        .val { font-weight: 600; color: #333; font-size: 1rem; text-align: right; }
+        .highlight-val { font-size: 1.2rem; color: #2c3e50; font-weight: 700; }
+
+        .status-box {
+            margin-top: 15px; padding: 10px; text-align: center;
+            border-radius: 8px; font-weight: bold; color: white;
+        }
+        .bg-green { background-color: #27ae60; }
+        .bg-red { background-color: #c0392b; }
+
+        /* --- ACTION BUTTONS --- */
+        .action-area {
+            display: none; gap: 10px; margin-top: 20px; justify-content: center;
+        }
+        .btn-pdf { background-color: #e74c3c; width: 100%; }
+        .btn-reset { background-color: #555; width: 100%; }
+
+        .loading, .error {
+            text-align: center; display: none; padding: 15px;
+            border-radius: 8px; margin-top: 10px;
+        }
+        .loading { color: #2980b9; background: #eaf6ff; }
+        .error { color: white; background: #e74c3c; }
+
+        /* --- PDF TEMPLATE (SPECIAL FIX FOR BLANK PAGE) --- */
+        /* This section is strictly for PDF generation */
+        #pdfTemplate {
+            background: white;
+            width: 750px; /* Fixed width prevents mobile scaling issues */
+            padding: 40px;
+            color: black;
+            font-family: 'Times New Roman', serif;
+            /* Important: Keep it off-screen initially, NOT display:none */
+            position: absolute;
+            top: -10000px;
+            left: -10000px;
+            z-index: 9999;
+        }
+
+        .pdf-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+        .pdf-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 16px; }
+        .pdf-table td { border: 1px solid #000; padding: 10px; }
+        .pdf-label { background: #f0f0f0; font-weight: bold; width: 40%; }
+        .pdf-val { font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="main-header">
+        <h1>BUKHARIYA EDUCATIONAL CENTRE</h1>
+        <h2>Burhan Stationery</h2>
+        <h3>Stock Details Management</h3>
+        <div class="date-badge" id="liveTime"></div>
+    </div>
+
+    <div class="search-container" id="searchBox">
+        <input type="text" id="searchInput" placeholder="">
+        <button class="btn btn-search" onclick="fetchData()">Search</button>
+    </div>
+
+    <div id="loading" class="loading">Searching...</div>
+    <div id="error" class="error">Item Code Not Found!</div>
+
+    <div id="resultContainer">
+        <div class="data-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #eee; padding-bottom:15px; margin-bottom:15px;">
+                <h2 style="margin:0; color:#2c3e50;" id="webName"></h2>
+                <span style="background:#2c3e50; color:white; padding:5px 10px; border-radius:5px;" id="webCode"></span>
+            </div>
+
+            <div class="row"><span class="label">Category</span><span class="val" id="webCat"></span></div>
+            <div class="row"><span class="label">Unit</span><span class="val" id="webUnit"></span></div>
+            <div class="row"><span class="label">Opening Stock</span><span class="val" id="webOpen"></span></div>
+            <div class="row"><span class="label">Total In</span><span class="val" id="webIn"></span></div>
+            <div class="row"><span class="label">Total Out</span><span class="val" id="webOut"></span></div>
+            <div class="row"><span class="label">Purchase Price</span><span class="val" id="webPPrice"></span></div>
+            <div class="row"><span class="label">Selling Price</span><span class="val" id="webSPrice"></span></div>
+            <div class="row"><span class="label">Reorder Level</span><span class="val" id="webReorder"></span></div>
+
+            <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-top:15px; border:1px solid #e9ecef;">
+                <div class="row" style="border:none;">
+                    <span class="label">Current Stock</span>
+                    <span class="val highlight-val" id="webCurrent"></span>
+                </div>
+                <div class="row" style="border:none;">
+                    <span class="label">Total Value</span>
+                    <span class="val highlight-val" id="webValue"></span>
+                </div>
+            </div>
+
+            <div id="webStatus" class="status-box"></div>
+        </div>
+    </div>
+
+    <div class="action-area" id="actionBtns">
+        <button class="btn btn-pdf" onclick="generatePDF()">Download PDF (A4)</button>
+        <button class="btn btn-reset" onclick="resetAll()">New Search</button>
+    </div>
+
+</div>
+
+<div id="pdfTemplate">
+    <div class="pdf-header">
+        <h1 style="margin:0; font-size: 24px;">BUKHARIYA EDUCATIONAL CENTRE</h1>
+        <h2 style="margin:5px 0; font-size: 18px;">Burhan Stationery Stock Report</h2>
+        <p id="pdfDate" style="margin:0; font-size: 14px; color: #555;"></p>
+    </div>
+    
+    <table class="pdf-table">
+        <tr><td class="pdf-label">Item Code</td><td class="pdf-val" id="pdfCode"></td></tr>
+        <tr><td class="pdf-label">Item Name</td><td class="pdf-val" style="font-size: 18px;" id="pdfName"></td></tr>
+        <tr><td class="pdf-label">Category</td><td class="pdf-val" id="pdfCat"></td></tr>
+        <tr><td class="pdf-label">Current Status</td><td class="pdf-val" id="pdfStatus"></td></tr>
+    </table>
+
+    <h3 style="margin-top:25px; border-bottom:1px solid #000; font-size:16px;">Stock Metrics</h3>
+    
+    <table class="pdf-table">
+        <tr>
+            <td class="pdf-label">Opening Stock</td><td style="text-align:right;" id="pdfOpen"></td>
+            <td class="pdf-label">Current Stock</td><td style="text-align:right; font-weight:bold;" id="pdfCurrent"></td>
+        </tr>
+        <tr>
+            <td class="pdf-label">Total In</td><td style="text-align:right;" id="pdfIn"></td>
+            <td class="pdf-label">Total Out</td><td style="text-align:right;" id="pdfOut"></td>
+        </tr>
+        <tr>
+            <td class="pdf-label">Purchase Price</td><td style="text-align:right;" id="pdfPPrice"></td>
+            <td class="pdf-label">Selling Price</td><td style="text-align:right;" id="pdfSPrice"></td>
+        </tr>
+    </table>
+
+    <div style="margin-top:30px; text-align:right; padding:10px; border:2px solid #000;">
+        <span style="font-weight:bold; font-size: 16px;">TOTAL STOCK VALUE: </span>
+        <span style="font-size:20px; font-weight:bold;" id="pdfValue"></span>
+    </div>
+
+    <div style="margin-top:50px; font-size:12px; text-align:center; color:#666; border-top:1px solid #ccc; padding-top:10px;">
+        Generated via Burhan Stock System | <span id="printTime"></span>
+    </div>
+</div>
+
+<script>
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQl5P3dFIBWNxylgPEM_GK9NDIGsvCjAnBGd7XQt2GFsiUjxN365ID31IdDXNhFsxguRx07B-WTcLEW/pub?gid=0&single=true&output=tsv';
+
+    // Live Clock
+    setInterval(() => {
+        document.getElementById('liveTime').innerText = new Date().toLocaleString();
+    }, 1000);
+
+    // Enter Key Search
+    document.getElementById('searchInput').addEventListener("keypress", function(event) {
+        if (event.key === "Enter") fetchData();
+    });
+
+    function fetchData() {
+        const query = document.getElementById('searchInput').value.trim().toUpperCase();
+        if (!query) return;
+
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('resultContainer').style.display = 'none';
+        document.getElementById('actionBtns').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+
+        fetch(SHEET_URL)
+            .then(res => res.text())
+            .then(text => {
+                const rows = text.split('\n').map(row => row.split('\t'));
+                const data = rows.find(r => r[0] && r[0].replace(/"/g, '').trim().toUpperCase() === query);
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (data) {
+                    populateUI(data);
+                } else {
+                    document.getElementById('error').style.display = 'block';
+                }
+            })
+            .catch(err => {
+                alert("Check Internet Connection!");
+                document.getElementById('loading').style.display = 'none';
+            });
+    }
+
+    function populateUI(data) {
+        // Data Mapping
+        document.getElementById('webCode').innerText = data[0];
+        document.getElementById('webName').innerText = data[1];
+        document.getElementById('webCat').innerText = data[2];
+        document.getElementById('webUnit').innerText = data[3];
+        document.getElementById('webOpen').innerText = data[4];
+        document.getElementById('webIn').innerText = data[5];
+        document.getElementById('webOut').innerText = data[6];
+        document.getElementById('webCurrent').innerText = data[7];
+        document.getElementById('webPPrice').innerText = data[8];
+        document.getElementById('webSPrice').innerText = data[9];
+        document.getElementById('webValue').innerText = data[10];
+        document.getElementById('webReorder').innerText = data[11];
+
+        const status = data[12] ? data[12].trim() : "Unknown";
+        const statusBox = document.getElementById('webStatus');
+        statusBox.innerText = status;
+        statusBox.className = "status-box " + (status.toLowerCase().includes('low') || status.toLowerCase().includes('out') ? 'bg-red' : 'bg-green');
+
+        // Populate PDF Template (Hidden)
+        document.getElementById('pdfDate').innerText = "Date: " + new Date().toLocaleDateString();
+        document.getElementById('printTime').innerText = new Date().toLocaleString();
+        document.getElementById('pdfCode').innerText = data[0];
+        document.getElementById('pdfName').innerText = data[1];
+        document.getElementById('pdfCat').innerText = data[2];
+        document.getElementById('pdfStatus').innerText = status;
+        document.getElementById('pdfOpen').innerText = data[4];
+        document.getElementById('pdfCurrent').innerText = data[7] + " " + data[3];
+        document.getElementById('pdfIn').innerText = data[5];
+        document.getElementById('pdfOut').innerText = data[6];
+        document.getElementById('pdfPPrice').innerText = data[8];
+        document.getElementById('pdfSPrice').innerText = data[9];
+        document.getElementById('pdfValue').innerText = data[10];
+
+        // Show Results
+        document.getElementById('resultContainer').style.display = 'block';
+        document.getElementById('actionBtns').style.display = 'flex';
+        document.getElementById('searchBox').style.display = 'none';
+    }
+
+    function generatePDF() {
+        // Get the hidden template
+        const element = document.getElementById('pdfTemplate');
+        
+        // Move it into visible view (Top Left) temporarily for capture
+        // This fixes the "Blank PDF" issue because the element becomes truly visible to the browser
+        element.style.top = "0";
+        element.style.left = "0";
+        element.style.position = "absolute"; 
+        element.style.background = "white"; // Force white bg
+
+        const opt = {
+            margin:       10,
+            filename:     `Stock_${document.getElementById('webCode').innerText}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                scrollY: 0 // Forces top alignment
+            },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Generate PDF
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Move it back off-screen after download
+            element.style.top = "-10000px";
+            element.style.left = "-10000px";
+        });
+    }
+
+    function resetAll() {
+        location.reload();
+    }
+</script>
+
+</body>
+</html>
